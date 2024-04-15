@@ -1,0 +1,70 @@
+version: '3.7'
+
+services:
+  app:
+    container_name: test-api-shield-app
+    image: test-api-shield
+    restart: unless-stopped
+    working_dir: /var/www/
+    volumes:
+      - ./:/var/www
+    environment:
+      - DB_HOST=mysql
+      - REDIS_HOST=redis
+      - QUEUE_CONNECTION=redis
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - test-api-shield
+
+  nginx:
+    container_name: test-api-shield-nginx
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "8004:80"
+    volumes:
+      - ./:/var/www
+      - ./docker/nginx/:/etc/nginx/conf.d/
+    networks:
+      - test-api-shield
+
+  mysql:
+    container_name: test-shield-mysql
+    platform: linux/amd64
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_USER: ${DB_USERNAME}
+    volumes:
+      - ./.docker/mysql/dbdata:/var/lib/mysql
+    ports:
+      - "3308:3306"
+    networks:
+      - test-api-shield
+
+  queue:
+    container_name: test-api-shield-queue
+    image: test-api-shield
+    restart: unless-stopped
+    command: "php artisan queue:work"
+    volumes:
+      - ./:/var/www
+    depends_on:
+      - redis
+    networks:
+      - test-api-shield
+
+  redis:
+    container_name: test-api-shield-redis
+    image: redis:latest
+    networks:
+      - test-api-shield
+
+networks:
+  test-api-shield:
+    driver: bridge
